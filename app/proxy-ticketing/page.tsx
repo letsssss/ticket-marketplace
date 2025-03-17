@@ -7,6 +7,8 @@ import Link from "next/link"
 import Image from "next/image"
 import { Search } from "lucide-react"
 import { useRouter } from "next/navigation"
+import { useAuth } from "@/contexts/auth-context"
+import { toast } from "sonner"
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -65,12 +67,33 @@ const proxyTickets = [
   },
 ]
 
+// 티켓 인터페이스 정의
+interface PopularTicket {
+  id: number;
+  artist: string;
+  date: string;
+  venue: string;
+}
+
 export default function ProxyTicketingPage() {
-  const [isLoggedIn, setIsLoggedIn] = useState(false)
   const [searchQuery, setSearchQuery] = useState("")
-  const [popularTickets, setPopularTickets] = useState([])
+  const [popularTickets, setPopularTickets] = useState<PopularTicket[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const router = useRouter()
+  const { user, isLoading: authLoading, logout } = useAuth()
+
+  // 사용자 로그인 상태 변경 시 한 번만 환영 메시지 표시
+  useEffect(() => {
+    if (user && !isLoading && !authLoading) {
+      console.log("대리 티켓팅 페이지: 로그인된 사용자:", user.name);
+      // 최대 1회만 표시하기 위한 세션 스토리지 체크
+      const welcomeShown = sessionStorage.getItem('welcome_shown_proxy_ticketing');
+      if (!welcomeShown) {
+        toast.success(`${user.name}님 환영합니다!`);
+        sessionStorage.setItem('welcome_shown_proxy_ticketing', 'true');
+      }
+    }
+  }, [user, isLoading, authLoading]);
 
   useEffect(() => {
     setIsLoading(true)
@@ -97,10 +120,10 @@ export default function ProxyTicketingPage() {
   }
 
   const handleTicketSaleClick = () => {
-    if (isLoggedIn) {
+    if (user) {
       router.push("/sell")
     } else {
-      router.push("/login")
+      router.push("/login?callbackUrl=/sell")
     }
   }
 
@@ -109,14 +132,10 @@ export default function ProxyTicketingPage() {
     router.push(`/search?query=${encodeURIComponent(searchQuery)}`)
   }
 
-  const handleLogin = () => {
-    // 실제 구현에서는 로그인 로직을 추가해야 합니다.
-    setIsLoggedIn(true)
-  }
-
-  const handleLogout = () => {
-    // 실제 구현에서는 로그아웃 로직을 추가해야 합니다.
-    setIsLoggedIn(false)
+  const handleLogout = async () => {
+    await logout();
+    toast.success("로그아웃 되었습니다");
+    router.push("/");
   }
 
   return (
@@ -142,8 +161,9 @@ export default function ProxyTicketingPage() {
               </Link>
             </div>
             <div className="flex items-center space-x-6">
-              {isLoggedIn ? (
+              {user ? (
                 <>
+                  <span className="text-[#0061FF] font-medium">{user.name}님</span>
                   <button onClick={handleLogout} className="text-gray-700 hover:text-[#0061FF] transition-colors">
                     로그아웃
                   </button>
@@ -152,9 +172,9 @@ export default function ProxyTicketingPage() {
                   </Link>
                 </>
               ) : (
-                <button onClick={handleLogin} className="text-gray-700 hover:text-[#0061FF] transition-colors">
+                <Link href="/login" className="text-gray-700 hover:text-[#0061FF] transition-colors">
                   로그인
-                </button>
+                </Link>
               )}
               <Link href="/cart" className="text-gray-700 hover:text-[#0061FF] transition-colors">
                 장바구니

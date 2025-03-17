@@ -2,15 +2,17 @@
 
 import type React from "react"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import Link from "next/link"
 import Image from "next/image"
 import { Search, Calendar, MapPin, Clock, ArrowRight, Star } from "lucide-react"
 import { useRouter } from "next/navigation"
+import { useAuth } from "@/contexts/auth-context"
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { toast } from "sonner"
 
 const categories = [
   { name: "콘서트", href: "/category/콘서트" },
@@ -134,6 +136,20 @@ export default function TicketCancellationPage() {
   const [searchQuery, setSearchQuery] = useState("")
   const router = useRouter()
   const [activeTab, setActiveTab] = useState("all")
+  const { user, isLoading } = useAuth()
+
+  // 사용자 로그인 상태 변경 시 한 번만 환영 메시지 표시
+  useEffect(() => {
+    if (user && !isLoading) {
+      console.log("취켓팅 페이지: 로그인된 사용자:", user.name);
+      // 최대 1회만 표시하기 위한 세션 스토리지 체크
+      const welcomeShown = sessionStorage.getItem('welcome_shown_ticket_cancellation');
+      if (!welcomeShown) {
+        toast.success(`${user.name}님 환영합니다!`);
+        sessionStorage.setItem('welcome_shown_ticket_cancellation', 'true');
+      }
+    }
+  }, [user, isLoading]);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault()
@@ -163,9 +179,18 @@ export default function TicketCancellationPage() {
               </Link>
             </div>
             <div className="flex items-center space-x-6">
-              <Link href="/login" className="text-gray-700 hover:text-[#0061FF] transition-colors">
-                로그인
-              </Link>
+              {user ? (
+                <>
+                  <span className="text-[#0061FF] font-medium">{user.name}님</span>
+                  <Link href="/mypage" className="text-gray-700 hover:text-[#0061FF] transition-colors">
+                    마이페이지
+                  </Link>
+                </>
+              ) : (
+                <Link href="/login" className="text-gray-700 hover:text-[#0061FF] transition-colors">
+                  로그인
+                </Link>
+              )}
               <Link href="/cart" className="text-gray-700 hover:text-[#0061FF] transition-colors">
                 장바구니
               </Link>
@@ -431,6 +456,15 @@ export default function TicketCancellationPage() {
           </div>
         </div>
       </section>
+
+      <Button
+        type="button"
+        className="mt-6 bg-[#0061FF] hover:bg-[#0052D6] text-white"
+        onClick={() => router.push("/tickets/details")}
+      >
+        전체 티켓 보기
+        <ArrowRight className="w-4 h-4 ml-1" />
+      </Button>
     </div>
   )
 }
