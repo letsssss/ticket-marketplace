@@ -84,7 +84,10 @@ export async function POST(request: Request) {
       });
       
       // 쿠키 설정 강화
-      return setAuthCookie(response, dummyToken);
+      setAuthCookie(response, 'auth-token', dummyToken);
+      setAuthCookie(response, 'auth-status', 'authenticated', false);
+      
+      return response;
     }
 
     try {
@@ -128,7 +131,10 @@ export async function POST(request: Request) {
           });
           
           // 쿠키 설정 강화
-          return setAuthCookie(response, dummyToken);
+          setAuthCookie(response, 'auth-token', dummyToken);
+          setAuthCookie(response, 'auth-status', 'authenticated', false);
+          
+          return response;
         }
       }
       
@@ -171,6 +177,9 @@ export async function POST(request: Request) {
         
         // JWT 토큰 생성
         const token = jwt.sign({ userId: user.id }, JWT_SECRET, { expiresIn: '7d' });
+        
+        // 리프레시 토큰 생성
+        const refreshToken = generateRefreshToken(user.id);
 
         // 리프레시 토큰을 데이터베이스에 저장
         await prisma.user.update({
@@ -229,7 +238,10 @@ export async function POST(request: Request) {
         });
         
         // 쿠키 설정 강화
-        return setAuthCookie(response, dummyToken);
+        setAuthCookie(response, 'auth-token', dummyToken);
+        setAuthCookie(response, 'auth-status', 'authenticated', false);
+        
+        return response;
       }
 
       console.log("사용자 없음:", email);
@@ -267,7 +279,10 @@ export async function POST(request: Request) {
             });
             
             // 쿠키 설정 강화
-            return setAuthCookie(response, dummyToken);
+            setAuthCookie(response, 'auth-token', dummyToken);
+            setAuthCookie(response, 'auth-status', 'authenticated', false);
+            
+            return response;
           }
           
           // 새 사용자 생성
@@ -284,13 +299,16 @@ export async function POST(request: Request) {
           const dummyToken = `dev-jwt-${Date.now()}-${userWithoutPassword.id}`;
           
           const response = NextResponse.json({
-            message: "개발환경: DB 오류로 인한 사용자 자동 생성 및 로그인 성공",
+            message: "개발환경: 사용자 자동 생성 및 로그인 성공",
             user: userWithoutPassword,
             token: dummyToken,
           });
           
           // 쿠키 설정 강화
-          return setAuthCookie(response, dummyToken);
+          setAuthCookie(response, 'auth-token', dummyToken);
+          setAuthCookie(response, 'auth-status', 'authenticated', false);
+          
+          return response;
         } catch (memoryError) {
           console.error("메모리 사용자 생성 오류:", memoryError);
         }
