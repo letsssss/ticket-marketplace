@@ -18,6 +18,13 @@ interface Concert {
   venue: string
 }
 
+// 커스텀 공연 정보 타입 정의
+interface CustomConcert {
+  title: string
+  date: string
+  venue: string
+}
+
 // 섹션 타입 정의
 interface Section {
   name: string
@@ -27,6 +34,9 @@ interface Section {
 // 에러 타입 정의
 interface FormErrors {
   concert?: string
+  concertTitle?: string
+  concertDate?: string
+  concertVenue?: string
   description?: string
   [key: string]: string | undefined
 }
@@ -44,6 +54,11 @@ export default function SellPage() {
   const [searchTerm, setSearchTerm] = useState("")
   const [searchResults, setSearchResults] = useState<Concert[]>([])
   const [selectedConcert, setSelectedConcert] = useState<Concert | null>(null)
+  const [customConcert, setCustomConcert] = useState<CustomConcert>({
+    title: "",
+    date: "",
+    venue: ""
+  })
   const [quantity, setQuantity] = useState("1")
   const [seatInfo, setSeatInfo] = useState("")
   const [price, setPrice] = useState("")
@@ -64,8 +79,22 @@ export default function SellPage() {
 
   const handleConcertSelect = (concert: Concert) => {
     setSelectedConcert(concert)
+    setCustomConcert({
+      title: concert.title,
+      date: concert.date,
+      venue: concert.venue
+    })
     setSearchTerm("")
     setSearchResults([])
+  }
+
+  const updateCustomConcert = (field: keyof CustomConcert, value: string) => {
+    setCustomConcert(prev => ({
+      ...prev,
+      [field]: value
+    }))
+    // 커스텀 공연 정보가 변경되면 선택된 공연 정보를 제거
+    setSelectedConcert(null)
   }
 
   const addSection = () => {
@@ -93,8 +122,16 @@ export default function SellPage() {
   const validateForm = () => {
     const errors: FormErrors = {}
 
-    if (!selectedConcert) {
-      errors.concert = "공연을 선택해주세요"
+    if (!customConcert.title) {
+      errors.concertTitle = "공연 제목을 입력해주세요"
+    }
+
+    if (!customConcert.date) {
+      errors.concertDate = "공연 날짜를 입력해주세요"
+    }
+
+    if (!customConcert.venue) {
+      errors.concertVenue = "공연장을 입력해주세요"
     }
 
     if (!ticketDescription) {
@@ -122,10 +159,22 @@ export default function SellPage() {
 
     if (!validateForm()) {
       // 폼이 유효하지 않으면 오류 메시지를 표시하고 제출하지 않음
-      if (!selectedConcert) {
+      if (!customConcert.title) {
         toast({
           title: "Error",
-          description: "공연을 선택해주세요",
+          description: "공연 제목을 입력해주세요",
+          variant: "destructive",
+        })
+      } else if (!customConcert.date) {
+        toast({
+          title: "Error",
+          description: "공연 날짜를 입력해주세요",
+          variant: "destructive",
+        })
+      } else if (!customConcert.venue) {
+        toast({
+          title: "Error",
+          description: "공연장을 입력해주세요",
           variant: "destructive",
         })
       } else if (!ticketDescription) {
@@ -147,10 +196,10 @@ export default function SellPage() {
     try {
       // 판매 데이터 준비
       const saleData = {
-        title: selectedConcert?.title || "",
-        eventName: selectedConcert?.title || "",
-        eventDate: selectedConcert?.date || "",
-        eventVenue: selectedConcert?.venue || "",
+        title: customConcert.title,
+        eventName: customConcert.title,
+        eventDate: customConcert.date,
+        eventVenue: customConcert.venue,
         content: ticketDescription || "",
         category: "TICKET_SALE",
         ticketPrice: parseInt(sections[0].price) || 0,
@@ -189,30 +238,29 @@ export default function SellPage() {
       // 판매 정보 표시를 위해 로컬 스토리지에 저장 (선택사항)
       localStorage.setItem('lastSaleDetails', JSON.stringify({
         saleId: result.post.id,
-        title: selectedConcert?.title,
-        date: selectedConcert?.date,
-        venue: selectedConcert?.venue,
+        title: customConcert.title,
+        date: customConcert.date,
+        venue: customConcert.venue,
         price: sections[0].price,
       }));
       
-      // 폼 제출 성공 시 토스트 메시지 표시
+      // 성공 메시지 표시
       toast({
         title: "성공",
-        description: "판매 등록이 완료되었습니다.",
-        variant: "default",
-      })
-      
-      // 마이페이지로 이동
-      router.push("/mypage")
+        description: "티켓 판매가 성공적으로 등록되었습니다.",
+      });
+
+      // 마이페이지로 리다이렉트
+      router.push("/mypage");
     } catch (error) {
-      console.error("판매 등록 오류:", error)
+      console.error("판매 등록 오류:", error);
       toast({
-        title: "오류",
-        description: "판매 등록에 실패했습니다. 다시 시도해주세요.",
+        title: "오류 발생",
+        description: error instanceof Error ? error.message : "판매 등록 중 오류가 발생했습니다.",
         variant: "destructive",
-      })
+      });
     }
-  }
+  };
 
   return (
     <div className="min-h-screen bg-gray-100">
@@ -267,31 +315,47 @@ export default function SellPage() {
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  공연 검색 <span className="text-red-500">(필수)</span>
+                  공연 제목 <span className="text-red-500">(필수)</span>
                 </label>
-                <div className="relative">
-                  <Input
-                    type="text"
-                    placeholder="공연 제목을 입력하세요"
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="pr-10"
-                  />
-                  <Search className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
-                </div>
-                {searchResults.length > 0 && (
-                  <ul className="mt-2 border rounded-md shadow-sm">
-                    {searchResults.map((concert) => (
-                      <li
-                        key={concert.id}
-                        className="px-4 py-2 hover:bg-gray-100 cursor-pointer"
-                        onClick={() => handleConcertSelect(concert)}
-                      >
-                        {concert.title}
-                      </li>
-                    ))}
-                  </ul>
-                )}
+                <Input
+                  type="text"
+                  placeholder="공연 제목을 입력하세요"
+                  value={customConcert.title}
+                  onChange={(e) => updateCustomConcert("title", e.target.value)}
+                  className={formErrors.concertTitle ? "border-red-500" : ""}
+                  required
+                />
+                {formErrors.concertTitle && <p className="mt-1 text-xs text-red-500">{formErrors.concertTitle}</p>}
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  공연 날짜 <span className="text-red-500">(필수)</span>
+                </label>
+                <Input
+                  type="text"
+                  placeholder="공연 날짜를 입력하세요 (예: 2024-03-20)"
+                  value={customConcert.date}
+                  onChange={(e) => updateCustomConcert("date", e.target.value)}
+                  className={formErrors.concertDate ? "border-red-500" : ""}
+                  required
+                />
+                {formErrors.concertDate && <p className="mt-1 text-xs text-red-500">{formErrors.concertDate}</p>}
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  공연장 <span className="text-red-500">(필수)</span>
+                </label>
+                <Input
+                  type="text"
+                  placeholder="공연장을 입력하세요"
+                  value={customConcert.venue}
+                  onChange={(e) => updateCustomConcert("venue", e.target.value)}
+                  className={formErrors.concertVenue ? "border-red-500" : ""}
+                  required
+                />
+                {formErrors.concertVenue && <p className="mt-1 text-xs text-red-500">{formErrors.concertVenue}</p>}
               </div>
 
               <div className="mb-6">
@@ -346,31 +410,6 @@ export default function SellPage() {
                   </div>
                 ))}
               </div>
-
-              {selectedConcert && (
-                <>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      공연 제목 <span className="text-red-500">(필수)</span>
-                    </label>
-                    <Input type="text" value={selectedConcert.title} readOnly />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      공연 날짜 <span className="text-red-500">(필수)</span>
-                    </label>
-                    <Input type="text" value={selectedConcert.date} readOnly />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      공연장 <span className="text-red-500">(필수)</span>
-                    </label>
-                    <Input type="text" value={selectedConcert.venue} readOnly />
-                  </div>
-                </>
-              )}
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
