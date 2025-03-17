@@ -133,73 +133,105 @@ const popularTickets = [
 ]
 
 export default function TicketCancellationPage() {
+  const { user, logout } = useAuth()
   const [searchQuery, setSearchQuery] = useState("")
   const router = useRouter()
   const [activeTab, setActiveTab] = useState("all")
-  const { user, isLoading } = useAuth()
+  const [mounted, setMounted] = useState(false)
 
-  // 사용자 로그인 상태 변경 시 한 번만 환영 메시지 표시
   useEffect(() => {
-    if (user && !isLoading) {
-      console.log("취켓팅 페이지: 로그인된 사용자:", user.name);
-      // 최대 1회만 표시하기 위한 세션 스토리지 체크
-      const welcomeShown = sessionStorage.getItem('welcome_shown_ticket_cancellation');
-      if (!welcomeShown) {
-        toast.success(`${user.name}님 환영합니다!`);
-        sessionStorage.setItem('welcome_shown_ticket_cancellation', 'true');
-      }
-    }
-  }, [user, isLoading]);
+    setMounted(true)
+  }, [])
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault()
     router.push(`/search?query=${encodeURIComponent(searchQuery)}`)
   }
 
+  const handleLogin = () => {
+    router.push("/login")
+  }
+
+  // 초기 렌더링을 위한 더미 UI 컴포넌트
+  const AuthButtons = () => {
+    if (!mounted) {
+      return (
+        <>
+          <button className="text-gray-700 hover:text-[#0061FF] transition-colors whitespace-nowrap opacity-0">
+            로그인
+          </button>
+          <div className="text-gray-700 hover:text-[#0061FF] transition-colors whitespace-nowrap opacity-0">
+            마이페이지
+          </div>
+        </>
+      );
+    }
+
+    if (user) {
+      return (
+        <>
+          <button
+            onClick={logout}
+            className="text-gray-700 hover:text-[#0061FF] transition-colors whitespace-nowrap"
+          >
+            로그아웃
+          </button>
+          <Link
+            href="/mypage"
+            className="text-gray-700 hover:text-[#0061FF] transition-colors whitespace-nowrap"
+          >
+            마이페이지
+          </Link>
+        </>
+      );
+    }
+
+    return (
+      <button
+        onClick={handleLogin}
+        className="text-gray-700 hover:text-[#0061FF] transition-colors whitespace-nowrap"
+      >
+        로그인
+      </button>
+    );
+  };
+
   return (
     <div className="min-h-screen bg-gray-50">
       <header className="w-full bg-white shadow-sm">
-        <div className="container mx-auto px-4">
-          <div className="flex h-16 items-center justify-between">
+        <div className="container mx-auto px-4 overflow-x-auto">
+          <div className="flex h-16 items-center justify-between min-w-[768px]">
             <div className="flex items-center space-x-6">
-              <Link href="/" className="text-2xl font-bold text-[#0061FF]">
+              <Link href="/" className="text-2xl font-bold text-[#0061FF] whitespace-nowrap">
                 이지티켓
               </Link>
               <Link
                 href="/proxy-ticketing"
-                className="text-gray-700 hover:text-[#0061FF] transition-colors border-r pr-6"
+                className="text-gray-700 hover:text-[#0061FF] transition-colors border-r pr-6 whitespace-nowrap"
               >
                 대리티켓팅
               </Link>
-              <Link href="/ticket-cancellation" className="text-[#0061FF] font-medium transition-colors border-r pr-6">
+              <Link
+                href="/ticket-cancellation"
+                className="text-[#0061FF] font-medium transition-colors border-r pr-6 whitespace-nowrap"
+              >
                 취켓팅
               </Link>
-              <Link href="/tickets" className="text-gray-700 hover:text-[#0061FF] transition-colors">
+              <Link href="/tickets" className="text-gray-700 hover:text-[#0061FF] transition-colors whitespace-nowrap">
                 티켓 구매/판매
               </Link>
             </div>
             <div className="flex items-center space-x-6">
-              {user ? (
-                <>
-                  <span className="text-[#0061FF] font-medium">{user.name}님</span>
-                  <Link href="/mypage" className="text-gray-700 hover:text-[#0061FF] transition-colors">
-                    마이페이지
-                  </Link>
-                </>
-              ) : (
-                <Link href="/login" className="text-gray-700 hover:text-[#0061FF] transition-colors">
-                  로그인
-                </Link>
-              )}
-              <Link href="/cart" className="text-gray-700 hover:text-[#0061FF] transition-colors">
+              <AuthButtons />
+              <Link href="/cart" className="text-gray-700 hover:text-[#0061FF] transition-colors whitespace-nowrap">
                 장바구니
               </Link>
-              <Link
-                href="/sell"
-                className="px-4 py-2 bg-[#0061FF] text-white rounded-md hover:bg-[#0052D6] transition-colors"
+              <button
+                onClick={() => router.push('/sell')}
+                className="px-4 py-2 bg-[#0061FF] text-white rounded-md hover:bg-[#0052D6] transition-colors whitespace-nowrap"
               >
-                티켓 판매
-              </Link>
+                취켓팅 등록
+              </button>
             </div>
           </div>
         </div>
@@ -207,7 +239,6 @@ export default function TicketCancellationPage() {
 
       {/* Hero Section */}
       <div className="bg-gradient-to-r from-[#0061FF] to-[#60A5FA] relative overflow-hidden">
-        <div className="absolute inset-0 bg-[url('/placeholder.svg?height=600&width=1200')] opacity-10 bg-cover bg-center"></div>
         <section className="container mx-auto flex flex-col items-center justify-center py-16 px-4 relative z-10">
           <div className="mb-4 inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold transition-colors border-transparent bg-white/20 text-white hover:bg-white/30 backdrop-blur-sm">
             취소표 예매 성공률 98%
@@ -347,7 +378,6 @@ export default function TicketCancellationPage() {
                       </span>
                     </div>
                     <Button
-                      size="sm"
                       className="bg-[#0061FF] hover:bg-[#0052D6]"
                       onClick={() => router.push(`/ticket-cancellation/${ticket.id}`)}
                     >
@@ -456,15 +486,6 @@ export default function TicketCancellationPage() {
           </div>
         </div>
       </section>
-
-      <Button
-        type="button"
-        className="mt-6 bg-[#0061FF] hover:bg-[#0052D6] text-white"
-        onClick={() => router.push("/tickets/details")}
-      >
-        전체 티켓 보기
-        <ArrowRight className="w-4 h-4 ml-1" />
-      </Button>
     </div>
   )
 }

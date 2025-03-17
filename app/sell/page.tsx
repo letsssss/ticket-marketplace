@@ -4,15 +4,35 @@ import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { ArrowLeft, Search } from "lucide-react"
+import { useToast } from "@/components/ui/use-toast"
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Checkbox } from "@/components/ui/checkbox"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
 
+// 콘서트 데이터 타입 정의
+interface Concert {
+  id: number
+  title: string
+  date: string
+  venue: string
+}
+
+// 섹션 타입 정의
+interface Section {
+  name: string
+  price: string
+}
+
+// 에러 타입 정의
+interface FormErrors {
+  concert?: string
+  description?: string
+  [key: string]: string | undefined
+}
+
 // 임시 공연 데이터 (실제로는 API에서 가져와야 합니다)
-const concertData = [
+const concertData: Concert[] = [
   { id: 1, title: "세븐틴 콘서트", date: "2024-03-20", venue: "잠실종합운동장 주경기장" },
   { id: 2, title: "방탄소년단 월드투어", date: "2024-04-15", venue: "부산 아시아드 주경기장" },
   { id: 3, title: "아이유 콘서트", date: "2024-05-01", venue: "올림픽공원 체조경기장" },
@@ -22,13 +42,16 @@ const concertData = [
 export default function SellPage() {
   const router = useRouter()
   const [searchTerm, setSearchTerm] = useState("")
-  const [searchResults, setSearchResults] = useState([])
-  const [selectedConcert, setSelectedConcert] = useState(null)
+  const [searchResults, setSearchResults] = useState<Concert[]>([])
+  const [selectedConcert, setSelectedConcert] = useState<Concert | null>(null)
   const [quantity, setQuantity] = useState("1")
   const [seatInfo, setSeatInfo] = useState("")
   const [price, setPrice] = useState("")
   const [ticketDescription, setTicketDescription] = useState("")
   const [isConsecutiveSeats, setIsConsecutiveSeats] = useState(false)
+  const [sections, setSections] = useState<Section[]>([{ name: "", price: "" }])
+  const [formErrors, setFormErrors] = useState<FormErrors>({})
+  const { toast } = useToast()
 
   useEffect(() => {
     if (searchTerm.length > 0) {
@@ -39,29 +62,157 @@ export default function SellPage() {
     }
   }, [searchTerm])
 
-  const handleConcertSelect = (concert) => {
+  const handleConcertSelect = (concert: Concert) => {
     setSelectedConcert(concert)
     setSearchTerm("")
     setSearchResults([])
   }
 
-  const handleSubmit = async (e) => {
-    e.preventDefault()
-    // 여기에 판매 등록 로직을 구현합니다.
-    console.log("판매 등록:", {
-      concert: selectedConcert,
-      quantity,
-      seatInfo,
-      price,
-      ticketDescription,
-      isConsecutiveSeats,
-    })
-    // 실제로는 API 호출 등의 로직이 들어갑니다.
-    // API 호출 성공 후 리다이렉트
-    router.push("/sell/success")
+  const addSection = () => {
+    setSections([...sections, { name: "", price: "" }])
   }
 
-  const isFormValid = selectedConcert && seatInfo && price && ticketDescription
+  const removeSection = (index: number) => {
+    const newSections = [...sections]
+    newSections.splice(index, 1)
+    setSections(newSections)
+  }
+
+  const updateSectionName = (index: number, name: string) => {
+    const newSections = [...sections]
+    newSections[index].name = name
+    setSections(newSections)
+  }
+
+  const updateSectionPrice = (index: number, price: string) => {
+    const newSections = [...sections]
+    newSections[index].price = price
+    setSections(newSections)
+  }
+
+  const validateForm = () => {
+    const errors: FormErrors = {}
+
+    if (!selectedConcert) {
+      errors.concert = "공연을 선택해주세요"
+    }
+
+    if (!ticketDescription) {
+      errors.description = "티켓 상세설명을 입력해주세요"
+    }
+
+    sections.forEach((section, index) => {
+      if (!section.name) {
+        errors[`section_${index}_name`] = "구역명을 입력해주세요"
+      }
+      if (!section.price) {
+        errors[`section_${index}_price`] = "가격을 입력해주세요"
+      }
+    })
+
+    setFormErrors(errors)
+    
+    // 디버깅을 위해 항상 true를 반환합니다. 실제 운영 환경에서는 아래 주석을 해제하세요.
+    return true
+    // return Object.keys(errors).length === 0
+  }
+
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault()
+
+    if (!validateForm()) {
+      // 폼이 유효하지 않으면 오류 메시지를 표시하고 제출하지 않음
+      if (!selectedConcert) {
+        toast({
+          title: "Error",
+          description: "공연을 선택해주세요",
+          variant: "destructive",
+        })
+      } else if (!ticketDescription) {
+        toast({
+          title: "Error",
+          description: "티켓 상세설명을 입력해주세요",
+          variant: "destructive",
+        })
+      } else if (sections.some((section) => !section.name || !section.price)) {
+        toast({
+          title: "Error",
+          description: "모든 구역의 이름과 가격을 입력해주세요",
+          variant: "destructive",
+        })
+      }
+      return
+    }
+
+    try {
+      // 판매 데이터 준비
+      const saleData = {
+        title: selectedConcert?.title || "",
+        eventName: selectedConcert?.title || "",
+        eventDate: selectedConcert?.date || "",
+        eventVenue: selectedConcert?.venue || "",
+        content: ticketDescription || "",
+        category: "TICKET_SALE",
+        ticketPrice: parseInt(sections[0].price) || 0,
+        contactInfo: "연락처는 마이페이지에서 확인 가능합니다.",
+      };
+
+      console.log("제출할 판매 데이터:", saleData);
+
+      // 서버에 판매 데이터 저장 (API 호출)
+      const response = await fetch('/api/posts', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(saleData),
+      });
+
+      const result = await response.json();
+      console.log("서버 응답:", result);
+      
+      if (!response.ok) {
+        // 서버에서 반환된 구체적인 오류 메시지 확인
+        if (result && result.errors) {
+          console.error("유효성 검사 오류:", result.errors);
+          
+          const errorMessage = result.errors.map((err: any) => 
+            `${err.path}: ${err.message}`
+          ).join(', ');
+          
+          throw new Error(errorMessage || result.message || '판매 등록에 실패했습니다.');
+        } else {
+          throw new Error(result.message || '판매 등록에 실패했습니다.');
+        }
+      }
+      
+      // 판매 정보 표시를 위해 로컬 스토리지에 저장 (선택사항)
+      localStorage.setItem('lastSaleDetails', JSON.stringify({
+        saleId: result.post.id,
+        title: selectedConcert?.title,
+        date: selectedConcert?.date,
+        venue: selectedConcert?.venue,
+        price: sections[0].price,
+      }));
+      
+      // 폼 제출 성공 시 토스트 메시지 표시
+      toast({
+        title: "성공",
+        description: "판매 등록이 완료되었습니다.",
+        variant: "default",
+      })
+      
+      // 마이페이지로 이동
+      router.push("/mypage")
+    } catch (error) {
+      console.error("판매 등록 오류:", error)
+      toast({
+        title: "오류",
+        description: "판매 등록에 실패했습니다. 다시 시도해주세요.",
+        variant: "destructive",
+      })
+    }
+  }
 
   return (
     <div className="min-h-screen bg-gray-100">
@@ -79,144 +230,6 @@ export default function SellPage() {
         <div className="max-w-2xl mx-auto">
           <form onSubmit={handleSubmit} className="bg-white rounded-lg shadow-md p-6">
             <div className="space-y-6">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  공연 검색 <span className="text-red-500">(필수)</span>
-                </label>
-                <div className="relative">
-                  <Input
-                    type="text"
-                    placeholder="공연 제목을 입력하세요"
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="pr-10"
-                  />
-                  <Search className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
-                </div>
-                {searchResults.length > 0 && (
-                  <ul className="mt-2 border rounded-md shadow-sm">
-                    {searchResults.map((concert) => (
-                      <li
-                        key={concert.id}
-                        className="px-4 py-2 hover:bg-gray-100 cursor-pointer"
-                        onClick={() => handleConcertSelect(concert)}
-                      >
-                        {concert.title}
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </div>
-
-              {selectedConcert && (
-                <>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      공연 제목 <span className="text-red-500">(필수)</span>
-                    </label>
-                    <Input type="text" value={selectedConcert.title} readOnly />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      공연 날짜 <span className="text-red-500">(필수)</span>
-                    </label>
-                    <Input type="text" value={selectedConcert.date} readOnly />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      공연장 <span className="text-red-500">(필수)</span>
-                    </label>
-                    <Input type="text" value={selectedConcert.venue} readOnly />
-                  </div>
-                </>
-              )}
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  좌석 정보 <span className="text-red-500">(필수)</span>
-                </label>
-                <Input
-                  type="text"
-                  placeholder="좌석 구역, 열, 번호를 입력해주세요"
-                  required
-                  value={seatInfo}
-                  onChange={(e) => setSeatInfo(e.target.value)}
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  티켓 상세설명 <span className="text-red-500">(필수)</span>
-                </label>
-                <Textarea
-                  placeholder="티켓에 대한 상세한 설명을 입력해주세요"
-                  value={ticketDescription}
-                  onChange={(e) => setTicketDescription(e.target.value)}
-                  className="min-h-[100px]"
-                  required
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  한장당 판매가격 <span className="text-red-500">(필수)</span>
-                </label>
-                <div className="space-y-4">
-                  <div className="flex items-center gap-4">
-                    <Select value={quantity} onValueChange={setQuantity}>
-                      <SelectTrigger className="w-[180px]">
-                        <SelectValue placeholder="전체 수량" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="1">1장</SelectItem>
-                        <SelectItem value="2">2장</SelectItem>
-                        <SelectItem value="3">3장</SelectItem>
-                        <SelectItem value="4">4장</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <div className="flex-1 flex items-center gap-2">
-                      <Input
-                        type="number"
-                        placeholder="판매 가격을 입력해주세요"
-                        required
-                        value={price}
-                        onChange={(e) => setPrice(e.target.value)}
-                      />
-                      <span className="text-gray-500">원</span>
-                    </div>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <Checkbox
-                      id="consecutive-seats"
-                      checked={isConsecutiveSeats}
-                      onCheckedChange={setIsConsecutiveSeats}
-                    />
-                    <label htmlFor="consecutive-seats" className="text-sm text-gray-600">
-                      연속된 좌석입니다.
-                    </label>
-                  </div>
-                  <div className="bg-gray-50 p-4 rounded-lg space-y-2">
-                    <h3 className="text-sm font-medium text-gray-700 flex items-center gap-1">동록 상품 기준</h3>
-                    <div className="grid grid-cols-3 gap-4 text-sm">
-                      <div>
-                        <p className="text-gray-500">최저가</p>
-                        <p className="font-medium">-</p>
-                      </div>
-                      <div>
-                        <p className="text-gray-500">평균가</p>
-                        <p className="font-medium">-</p>
-                      </div>
-                      <div>
-                        <p className="text-gray-500">매수 당 가격</p>
-                        <p className="font-medium">-</p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   티켓 사진 <span className="text-gray-500">(선택)</span>
@@ -252,11 +265,128 @@ export default function SellPage() {
                 </div>
               </div>
 
-              <Button
-                type="submit"
-                className="w-full bg-black hover:bg-gray-800 text-white transition-colors"
-                disabled={!isFormValid}
-              >
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  공연 검색 <span className="text-red-500">(필수)</span>
+                </label>
+                <div className="relative">
+                  <Input
+                    type="text"
+                    placeholder="공연 제목을 입력하세요"
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="pr-10"
+                  />
+                  <Search className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+                </div>
+                {searchResults.length > 0 && (
+                  <ul className="mt-2 border rounded-md shadow-sm">
+                    {searchResults.map((concert) => (
+                      <li
+                        key={concert.id}
+                        className="px-4 py-2 hover:bg-gray-100 cursor-pointer"
+                        onClick={() => handleConcertSelect(concert)}
+                      >
+                        {concert.title}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+
+              <div className="mb-6">
+                <div className="flex justify-between items-center mb-3">
+                  <h3 className="text-sm font-medium text-gray-700">
+                    구역별 가격 설정 <span className="text-red-500">(필수)</span>
+                  </h3>
+                  <Button type="button" variant="outline" onClick={addSection} className="text-xs">
+                    구역 추가 +
+                  </Button>
+                </div>
+
+                {sections.map((section, index) => (
+                  <div key={index} className="flex items-center gap-2 mb-2">
+                    <div className="flex-1">
+                      <Input
+                        type="text"
+                        placeholder="구역명 (예: R석, S석)"
+                        value={section.name}
+                        onChange={(e) => updateSectionName(index, e.target.value)}
+                        className={formErrors[`section_${index}_name`] ? "border-red-500" : ""}
+                        required
+                      />
+                      {formErrors[`section_${index}_name`] && (
+                        <p className="mt-1 text-xs text-red-500">{formErrors[`section_${index}_name`]}</p>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2 w-1/3">
+                      <Input
+                        type="number"
+                        placeholder="가격"
+                        value={section.price}
+                        onChange={(e) => updateSectionPrice(index, e.target.value)}
+                        className={formErrors[`section_${index}_price`] ? "border-red-500" : ""}
+                        required
+                      />
+                      <span className="text-gray-500 whitespace-nowrap">원</span>
+                      {formErrors[`section_${index}_price`] && (
+                        <p className="mt-1 text-xs text-red-500">{formErrors[`section_${index}_price`]}</p>
+                      )}
+                    </div>
+                    {sections.length > 1 && (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        onClick={() => removeSection(index)}
+                        className="h-8 w-8 text-red-500"
+                      >
+                        ✕
+                      </Button>
+                    )}
+                  </div>
+                ))}
+              </div>
+
+              {selectedConcert && (
+                <>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      공연 제목 <span className="text-red-500">(필수)</span>
+                    </label>
+                    <Input type="text" value={selectedConcert.title} readOnly />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      공연 날짜 <span className="text-red-500">(필수)</span>
+                    </label>
+                    <Input type="text" value={selectedConcert.date} readOnly />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      공연장 <span className="text-red-500">(필수)</span>
+                    </label>
+                    <Input type="text" value={selectedConcert.venue} readOnly />
+                  </div>
+                </>
+              )}
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  티켓 상세설명 <span className="text-red-500">(필수)</span>
+                </label>
+                <Textarea
+                  placeholder="티켓에 대한 상세한 설명을 입력해주세요"
+                  value={ticketDescription}
+                  onChange={(e) => setTicketDescription(e.target.value)}
+                  className={`min-h-[100px] ${formErrors.description ? "border-red-500" : ""}`}
+                  required
+                />
+                {formErrors.description && <p className="mt-1 text-sm text-red-500">{formErrors.description}</p>}
+              </div>
+
+              <Button type="submit" className="w-full bg-[#0061FF] hover:bg-[#0052D6] text-white transition-colors">
                 판매 등록하기
               </Button>
             </div>

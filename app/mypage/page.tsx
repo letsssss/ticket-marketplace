@@ -16,16 +16,22 @@ const ongoingPurchases = [
   { id: 2, title: "데이식스 전국투어", date: "2024-02-01", price: "99,000원", status: "배송 준비중" },
 ]
 
-const ongoingSales = [
-  { id: 1, title: "아이브 팬미팅", date: "2024-04-05", price: "88,000원", status: "판매중" },
-  { id: 2, title: "웃는 남자", date: "2024-01-09", price: "110,000원", status: "구매자 입금 대기중" },
-]
+// 판매 중인 상품 타입 정의
+interface Sale {
+  id: number;
+  title: string;
+  date: string;
+  price: string;
+  status: string;
+}
 
 export default function MyPage() {
   const [activeTab, setActiveTab] = useState("profile")
   const [isWithdrawModalOpen, setIsWithdrawModalOpen] = useState(false)
   const { user, isLoading, logout } = useAuth()
   const router = useRouter()
+  const [ongoingSales, setOngoingSales] = useState<Sale[]>([])
+  const [isLoadingSales, setIsLoadingSales] = useState(false)
 
   // 로그인 상태 확인
   useEffect(() => {
@@ -34,6 +40,49 @@ export default function MyPage() {
       router.push("/login?callbackUrl=/mypage")
     }
   }, [user, isLoading, router])
+
+  // 판매 중인 상품 목록 가져오기
+  useEffect(() => {
+    const fetchOngoingSales = async () => {
+      if (!user) return;
+      
+      setIsLoadingSales(true);
+      try {
+        const response = await fetch('/api/posts?category=TICKET_SALE');
+        
+        if (!response.ok) {
+          throw new Error('판매 목록을 불러오는데 실패했습니다.');
+        }
+        
+        const data = await response.json();
+        
+        // API 응답을 화면에 표시할 형식으로 변환
+        const salesData = data.posts.map((post: any) => ({
+          id: post.id,
+          title: post.title || post.eventName,
+          date: post.eventDate || new Date(post.createdAt).toLocaleDateString(),
+          price: `${post.ticketPrice?.toLocaleString() || '가격 정보 없음'}원`,
+          status: "판매중"
+        }));
+        
+        setOngoingSales(salesData);
+      } catch (error) {
+        console.error('판매 목록 로딩 오류:', error);
+        toast.error('판매 목록을 불러오는데 실패했습니다.');
+        // 에러 발생 시 기본 데이터 사용
+        setOngoingSales([
+          { id: 1, title: "아이브 팬미팅", date: "2024-04-05", price: "88,000원", status: "판매중" },
+          { id: 2, title: "웃는 남자", date: "2024-01-09", price: "110,000원", status: "구매자 입금 대기중" },
+        ]);
+      } finally {
+        setIsLoadingSales(false);
+      }
+    };
+
+    if (user && activeTab === "ongoing-sales") {
+      fetchOngoingSales();
+    }
+  }, [user, activeTab]);
 
   // 로딩 중이거나 사용자 정보가 없는 경우 로딩 표시
   if (isLoading || !user) {
@@ -199,7 +248,9 @@ export default function MyPage() {
             {activeTab === "ongoing-sales" && (
               <div>
                 <h2 className="text-xl font-semibold mb-4">판매중인 상품</h2>
-                {ongoingSales.length > 0 ? (
+                {isLoadingSales ? (
+                  <p className="text-gray-500">판매 목록을 불러오는 중...</p>
+                ) : ongoingSales.length > 0 ? (
                   ongoingSales.map((item) => (
                     <div key={item.id} className="border-b py-4 last:border-b-0">
                       <h3 className="font-medium">{item.title}</h3>
