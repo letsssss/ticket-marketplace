@@ -2,13 +2,14 @@
 
 import { useState, useEffect } from "react"
 import Link from "next/link"
-import { ArrowLeft, User, ShoppingBag, Tag } from "lucide-react"
+import { ArrowLeft, User, ShoppingBag, Tag, Trash2 } from "lucide-react"
 import { useAuth } from "@/contexts/auth-context"
 import { useRouter } from "next/navigation"
 import { toast } from "sonner"
 
 import { Button } from "@/components/ui/button"
 import { WithdrawModal } from "@/components/withdraw-modal"
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog"
 
 // 임시 데이터 (실제로는 API나 데이터베이스에서 가져와야 합니다)
 const ongoingPurchases = [
@@ -32,14 +33,20 @@ export default function MyPage() {
   const router = useRouter()
   const [ongoingSales, setOngoingSales] = useState<Sale[]>([])
   const [isLoadingSales, setIsLoadingSales] = useState(false)
+  const [mounted, setMounted] = useState(false)
+
+  // 마운트 확인
+  useEffect(() => {
+    setMounted(true)
+  }, [])
 
   // 로그인 상태 확인
   useEffect(() => {
-    if (!isLoading && !user) {
+    if (mounted && !isLoading && !user) {
       toast.error("로그인이 필요한 페이지입니다")
       router.push("/login?callbackUrl=/mypage")
     }
-  }, [user, isLoading, router])
+  }, [user, isLoading, router, mounted])
 
   // 판매 중인 상품 목록 가져오기
   useEffect(() => {
@@ -48,7 +55,8 @@ export default function MyPage() {
       
       setIsLoadingSales(true);
       try {
-        const response = await fetch('/api/posts?category=TICKET_SALE');
+        // 모든 카테고리(TICKET_SALE, TICKET_CANCELLATION 모두)의 본인 게시물을 가져옵니다
+        const response = await fetch('/api/posts');
         
         if (!response.ok) {
           throw new Error('판매 목록을 불러오는데 실패했습니다.');
@@ -62,7 +70,7 @@ export default function MyPage() {
           title: post.title || post.eventName,
           date: post.eventDate || new Date(post.createdAt).toLocaleDateString(),
           price: `${post.ticketPrice?.toLocaleString() || '가격 정보 없음'}원`,
-          status: "판매중"
+          status: post.category === 'TICKET_CANCELLATION' ? "취켓팅 판매중" : "판매중"
         }));
         
         setOngoingSales(salesData);
@@ -79,16 +87,49 @@ export default function MyPage() {
       }
     };
 
-    if (user && activeTab === "ongoing-sales") {
+    if (mounted && user && activeTab === "ongoing-sales") {
       fetchOngoingSales();
     }
-  }, [user, activeTab]);
+  }, [user, activeTab, mounted]);
 
-  // 로딩 중이거나 사용자 정보가 없는 경우 로딩 표시
-  if (isLoading || !user) {
+  // 게시물 삭제 함수
+  const deletePost = async (postId: number) => {
+    try {
+      const response = await fetch(`/api/posts/${postId}`, {
+        method: 'DELETE',
+      });
+      
+      if (!response.ok) {
+        throw new Error('게시물 삭제에 실패했습니다.');
+      }
+      
+      // 삭제 성공 시 목록에서 제거
+      setOngoingSales(prev => prev.filter(sale => sale.id !== postId));
+      toast.success('게시물이 삭제되었습니다.');
+    } catch (error) {
+      console.error('게시물 삭제 오류:', error);
+      toast.error('게시물 삭제에 실패했습니다.');
+    }
+  };
+
+  // 로딩 중이거나 마운트되지 않은 경우 로딩 표시
+  if (!mounted || isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <p>로딩 중...</p>
+      <div className="min-h-screen bg-gray-100">
+        <div className="flex items-center justify-center h-screen">
+          <p>로딩 중...</p>
+        </div>
+      </div>
+    )
+  }
+
+  // 로그인되지 않은 경우
+  if (!user) {
+    return (
+      <div className="min-h-screen bg-gray-100">
+        <div className="flex items-center justify-center h-screen">
+          <p>로그인이 필요합니다. 로그인 페이지로 이동합니다...</p>
+        </div>
       </div>
     )
   }
@@ -253,15 +294,44 @@ export default function MyPage() {
                 ) : ongoingSales.length > 0 ? (
                   ongoingSales.map((item) => (
                     <div key={item.id} className="border-b py-4 last:border-b-0">
-                      <h3 className="font-medium">{item.title}</h3>
-                      <p className="text-sm text-gray-600">{item.date}</p>
-                      <p className="text-sm font-semibold">{item.price}</p>
-                      <p className="text-sm text-green-600">{item.status}</p>
-                      <Link href={`/transaction/${item.id}`}>
-                        <Button className="mt-2 text-sm" variant="outline">
-                          거래 상세
-                        </Button>
-                      </Link>
+                      <div className="flex justify-between items-start">
+                        <div>
+                          <h3 className="font-medium">{item.title}</h3>
+                          <p className="text-sm text-gray-600">{item.date}</p>
+                          <p className="text-sm font-semibold">{item.price}</p>
+                          <p className="text-sm text-green-600">{item.status}</p>
+                          <div className="flex space-x-2 mt-2">
+                            <Link href={`/transaction/${item.id}`}>
+                              <Button className="text-sm" variant="outline">
+                                거래 상세
+                              </Button>
+                            </Link>
+                          </div>
+                        </div>
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <Button variant="ghost" className="p-2 h-auto text-red-500 hover:text-red-700 hover:bg-red-50">
+                              <Trash2 className="h-5 w-5" />
+                            </Button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>게시물 삭제</AlertDialogTitle>
+                              <AlertDialogDescription>
+                                "{item.title}" 게시물을 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel>취소</AlertDialogCancel>
+                              <AlertDialogAction 
+                                onClick={() => deletePost(item.id)} 
+                                className="bg-red-500 hover:bg-red-600 text-white">
+                                삭제
+                              </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
+                      </div>
                     </div>
                   ))
                 ) : (

@@ -130,10 +130,6 @@ export default function SellPage() {
       errors.concertDate = "공연 날짜를 입력해주세요"
     }
 
-    if (!customConcert.venue) {
-      errors.concertVenue = "공연장을 입력해주세요"
-    }
-
     if (!ticketDescription) {
       errors.description = "티켓 상세설명을 입력해주세요"
     }
@@ -171,12 +167,6 @@ export default function SellPage() {
           description: "공연 날짜를 입력해주세요",
           variant: "destructive",
         })
-      } else if (!customConcert.venue) {
-        toast({
-          title: "Error",
-          description: "공연장을 입력해주세요",
-          variant: "destructive",
-        })
       } else if (!ticketDescription) {
         toast({
           title: "Error",
@@ -201,7 +191,7 @@ export default function SellPage() {
         eventDate: customConcert.date,
         eventVenue: customConcert.venue,
         content: ticketDescription || "",
-        category: "TICKET_SALE",
+        category: "TICKET_CANCELLATION",
         ticketPrice: parseInt(sections[0].price) || 0,
         contactInfo: "연락처는 마이페이지에서 확인 가능합니다.",
       };
@@ -341,21 +331,6 @@ export default function SellPage() {
                   required
                 />
                 {formErrors.concertDate && <p className="mt-1 text-xs text-red-500">{formErrors.concertDate}</p>}
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  공연장 <span className="text-red-500">(필수)</span>
-                </label>
-                <Input
-                  type="text"
-                  placeholder="공연장을 입력하세요"
-                  value={customConcert.venue}
-                  onChange={(e) => updateCustomConcert("venue", e.target.value)}
-                  className={formErrors.concertVenue ? "border-red-500" : ""}
-                  required
-                />
-                {formErrors.concertVenue && <p className="mt-1 text-xs text-red-500">{formErrors.concertVenue}</p>}
               </div>
 
               <div className="mb-6">

@@ -21,6 +21,23 @@ const categories = [
   { name: "전시/행사", href: "/category/전시-행사" },
 ]
 
+// API에서 가져온 데이터의 타입 정의
+interface Post {
+  id: number;
+  title: string;
+  content: string;
+  eventName: string;
+  eventDate: string;
+  eventVenue: string;
+  ticketPrice: number;
+  createdAt: string;
+  author: {
+    id: string;
+    name: string;
+    email: string;
+  };
+}
+
 // 티켓 데이터에 판매자 정보 추가
 const cancellationTickets = [
   {
@@ -101,6 +118,7 @@ const cancellationTickets = [
   },
 ]
 
+// 인기 티켓 데이터 (하드코딩)
 const popularTickets = [
   {
     id: 1,
@@ -138,10 +156,34 @@ export default function TicketCancellationPage() {
   const router = useRouter()
   const [activeTab, setActiveTab] = useState("all")
   const [mounted, setMounted] = useState(false)
+  const [tickets, setTickets] = useState<Post[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState("")
 
   useEffect(() => {
     setMounted(true)
+    fetchCancellationTickets()
   }, [])
+
+  // 취켓팅 가능 티켓 가져오기
+  const fetchCancellationTickets = async () => {
+    try {
+      setLoading(true)
+      const response = await fetch('/api/posts?category=TICKET_CANCELLATION')
+      const data = await response.json()
+      
+      if (data.success) {
+        setTickets(data.posts)
+      } else {
+        setError("데이터를 불러오는데 실패했습니다.")
+      }
+    } catch (err) {
+      console.error("취켓팅 티켓 불러오기 오류:", err)
+      setError("데이터를 불러오는데 실패했습니다.")
+    } finally {
+      setLoading(false)
+    }
+  }
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault()
@@ -312,82 +354,110 @@ export default function TicketCancellationPage() {
           </Tabs>
 
           <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
-            {cancellationTickets.map((ticket) => (
-              <div
-                key={ticket.id}
-                className="bg-white rounded-xl shadow-md overflow-hidden hover:shadow-lg transition-all transform hover:-translate-y-1"
-              >
-                <div className="relative">
-                  <Link href={`/ticket-cancellation/${ticket.id}`}>
-                    <Image
-                      src={ticket.image || "/placeholder.svg"}
-                      alt={ticket.title}
-                      width={400}
-                      height={200}
-                      className="w-full h-48 object-cover"
-                    />
-                  </Link>
-                  <div className="absolute top-3 right-3">
-                    <div className="inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold transition-colors border-transparent bg-green-500 text-white hover:bg-green-600">
-                      성공률 {ticket.successRate}
-                    </div>
-                  </div>
-                  <div className="absolute bottom-3 left-3">
-                    <div className="inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold transition-colors border-transparent bg-black/50 text-white backdrop-blur-sm">
-                      남은시간: {ticket.remainingTime}
-                    </div>
-                  </div>
-                </div>
-                <div className="p-4">
-                  <Link href={`/ticket-cancellation/${ticket.id}`}>
-                    <h3 className="text-lg font-semibold mb-2 line-clamp-1">{ticket.title}</h3>
-                  </Link>
-                  <p className="text-gray-600 mb-2">{ticket.artist}</p>
-                  <div className="flex items-center gap-2 text-sm text-gray-500 mb-3">
-                    <span>판매자:</span>
-                    <Link
-                      href={`/seller/${ticket.seller.id}`}
-                      className="text-blue-600 hover:underline flex items-center"
-                    >
-                      {ticket.seller.username}
-                      <div className="flex items-center ml-2 text-yellow-500">
-                        <Star className="h-3 w-3 fill-current" />
-                        <span className="text-xs ml-0.5">{ticket.seller.rating}</span>
-                      </div>
-                    </Link>
-                  </div>
-                  <div className="space-y-2 text-sm text-gray-500 mb-3">
-                    <div className="flex items-center">
-                      <Calendar className="h-4 w-4 mr-2 text-gray-400" />
-                      <span>{ticket.date}</span>
-                    </div>
-                    <div className="flex items-center">
-                      <Clock className="h-4 w-4 mr-2 text-gray-400" />
-                      <span>{ticket.time}</span>
-                    </div>
-                    <div className="flex items-center">
-                      <MapPin className="h-4 w-4 mr-2 text-gray-400" />
-                      <span className="line-clamp-1">{ticket.venue}</span>
-                    </div>
-                  </div>
+            {loading ? (
+              // 로딩 상태 표시
+              Array(4).fill(0).map((_, index) => (
+                <div key={index} className="bg-white rounded-xl shadow-md overflow-hidden p-4 animate-pulse">
+                  <div className="w-full h-48 bg-gray-200 rounded mb-4"></div>
+                  <div className="h-6 bg-gray-200 rounded w-3/4 mb-4"></div>
+                  <div className="h-4 bg-gray-200 rounded w-1/2 mb-4"></div>
+                  <div className="h-4 bg-gray-200 rounded w-full mb-2"></div>
+                  <div className="h-4 bg-gray-200 rounded w-full mb-2"></div>
+                  <div className="h-4 bg-gray-200 rounded w-full mb-4"></div>
                   <div className="flex justify-between items-center">
-                    <div>
-                      <span className="font-medium text-black text-lg">{ticket.price.toLocaleString()}원</span>
-                      <span className="text-gray-400 text-sm line-through ml-2">
-                        {ticket.originalPrice.toLocaleString()}원
-                      </span>
-                    </div>
-                    <Button
-                      className="bg-[#0061FF] hover:bg-[#0052D6]"
-                      onClick={() => router.push(`/ticket-cancellation/${ticket.id}`)}
-                    >
-                      신청하기
-                      <ArrowRight className="ml-1 h-4 w-4" />
-                    </Button>
+                    <div className="h-6 bg-gray-200 rounded w-1/3"></div>
+                    <div className="h-8 bg-gray-200 rounded w-1/4"></div>
                   </div>
                 </div>
+              ))
+            ) : error ? (
+              // 에러 메시지 표시
+              <div className="col-span-4 text-center py-8">
+                <p className="text-red-500">{error}</p>
+                <Button onClick={fetchCancellationTickets} className="mt-4">
+                  다시 시도
+                </Button>
               </div>
-            ))}
+            ) : tickets.length === 0 ? (
+              // 데이터가 없는 경우
+              <div className="col-span-4 text-center py-8">
+                <p className="text-gray-500">등록된 취켓팅 공연이 없습니다.</p>
+                <Button onClick={() => router.push('/sell')} className="mt-4">
+                  취켓팅 등록하기
+                </Button>
+              </div>
+            ) : (
+              // 실제 티켓 데이터 표시
+              tickets.map((ticket) => (
+                <div
+                  key={ticket.id}
+                  className="bg-white rounded-xl shadow-md overflow-hidden hover:shadow-lg transition-all transform hover:-translate-y-1"
+                >
+                  <div className="relative">
+                    <Link href={`/ticket-cancellation/${ticket.id}`}>
+                      <Image
+                        src={"/placeholder.svg"}
+                        alt={ticket.title}
+                        width={400}
+                        height={200}
+                        className="w-full h-48 object-cover"
+                      />
+                    </Link>
+                    <div className="absolute top-3 right-3">
+                      <div className="inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold transition-colors border-transparent bg-green-500 text-white hover:bg-green-600">
+                        성공률 98%
+                      </div>
+                    </div>
+                    <div className="absolute bottom-3 left-3">
+                      <div className="inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold transition-colors border-transparent bg-black/50 text-white backdrop-blur-sm">
+                        {new Date(ticket.createdAt).toLocaleDateString()}
+                      </div>
+                    </div>
+                  </div>
+                  <div className="p-4">
+                    <Link href={`/ticket-cancellation/${ticket.id}`}>
+                      <h3 className="text-lg font-semibold mb-2 line-clamp-1">{ticket.title}</h3>
+                    </Link>
+                    <p className="text-gray-600 mb-2">{ticket.eventName}</p>
+                    <div className="flex items-center gap-2 text-sm text-gray-500 mb-3">
+                      <span>판매자:</span>
+                      <Link
+                        href={`/seller/${ticket.author.id}`}
+                        className="text-blue-600 hover:underline flex items-center"
+                      >
+                        {ticket.author.name}
+                        <div className="flex items-center ml-2 text-yellow-500">
+                          <Star className="h-3 w-3 fill-current" />
+                          <span className="text-xs ml-0.5">4.5</span>
+                        </div>
+                      </Link>
+                    </div>
+                    <div className="space-y-2 text-sm text-gray-500 mb-3">
+                      <div className="flex items-center">
+                        <Calendar className="h-4 w-4 mr-2 text-gray-400" />
+                        <span>{ticket.eventDate}</span>
+                      </div>
+                      <div className="flex items-center">
+                        <MapPin className="h-4 w-4 mr-2 text-gray-400" />
+                        <span className="line-clamp-1">{ticket.eventVenue}</span>
+                      </div>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <div>
+                        <span className="font-medium text-black text-lg">{ticket.ticketPrice?.toLocaleString() || 0}원</span>
+                      </div>
+                      <Button
+                        className="bg-[#0061FF] hover:bg-[#0052D6]"
+                        onClick={() => router.push(`/ticket-cancellation/${ticket.id}`)}
+                      >
+                        신청하기
+                        <ArrowRight className="ml-1 h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              ))
+            )}
           </div>
         </div>
       </section>

@@ -3,9 +3,30 @@
 import React from "react"
 import confetti from "canvas-confetti"
 import { toast } from "sonner"
+import { cn } from "@/lib/utils"
 
 interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: "outline" | "ghost" | "withdraw" | "confirm"
+}
+
+// 버튼 스타일 변형을 위한 함수
+export const buttonVariants = ({
+  variant = "default",
+  className = "",
+}: {
+  variant?: "default" | "outline" | "ghost" | "withdraw" | "confirm" | null;
+  className?: string;
+} = {}) => {
+  return cn(
+    "rounded-md text-sm font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50",
+    {
+      "border border-input bg-background text-foreground shadow-sm hover:bg-accent hover:text-accent-foreground": variant === "outline",
+      "hover:bg-accent hover:text-accent-foreground": variant === "ghost",
+      "bg-red-500 text-white shadow-sm hover:bg-red-600": variant === "withdraw",
+      "bg-[#FFD600] text-black shadow-sm hover:bg-[#FFE600]": variant === "confirm" || variant === "default"
+    },
+    className
+  )
 }
 
 export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
@@ -77,28 +98,13 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
       }
     }
 
-    // 버튼 클래스 설정
-    const buttonClasses = `
-      rounded-md text-sm font-medium 
-      focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 
-      disabled:cursor-not-allowed disabled:opacity-50 
-      ${
-        variant === "outline"
-          ? "border border-input bg-background text-foreground shadow-sm hover:bg-accent hover:text-accent-foreground"
-          : variant === "ghost"
-            ? "hover:bg-accent hover:text-accent-foreground"
-            : variant === "withdraw"
-              ? "bg-red-500 text-white shadow-sm hover:bg-red-600"
-              : variant === "confirm"
-                ? "bg-[#FFD600] text-black shadow-sm hover:bg-[#FFE600]"
-                : "bg-[#FFD600] text-black shadow-sm hover:bg-[#FFE600]"
-      } 
-      ${typeof children === "string" && children === "출금 신청하기" ? "sticky bottom-6 z-10 shadow-lg" : ""} 
-      ${typeof children === "string" && (children === "구매확정" || children === "구매 확정") ? "py-3 px-6 font-semibold text-base bg-[#FFD600] text-black hover:bg-[#FFE600] shadow-md hover:shadow-lg transform hover:-translate-y-0.5 transition-all" : ""} 
-      ${className || ""}
-    `
-      .replace(/\s+/g, " ")
-      .trim()
+    // buttonVariants 함수를 사용해 클래스를 생성
+    const buttonClasses = cn(
+      buttonVariants({ variant: variant || "default" }),
+      typeof children === "string" && children === "출금 신청하기" ? "sticky bottom-6 z-10 shadow-lg" : "",
+      typeof children === "string" && (children === "구매확정" || children === "구매 확정") ? "py-3 px-6 font-semibold text-base bg-[#FFD600] text-black hover:bg-[#FFE600] shadow-md hover:shadow-lg transform hover:-translate-y-0.5 transition-all" : "",
+      className
+    )
 
     return (
       <button className={buttonClasses} ref={ref} type={props.type || "button"} onClick={handleClick} {...props}>
